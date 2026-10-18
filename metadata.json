@@ -1,0 +1,6 @@
+{
+  "name": "NitePlay - Premium Adult Video Streaming",
+  "description": "Modern, premium adult video streaming platform featuring trending videos, responsive player, categories, search, and private local library.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
