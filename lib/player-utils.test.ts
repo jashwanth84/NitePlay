@@ -8,6 +8,8 @@ import {
   buildSearchUrl,
   updateHistoryList,
   getContinueWatchingList,
+  shouldApplyCssRotation,
+  getOrientationLockLabel,
 } from './player-utils.ts';
 import type { VideoItem, WatchHistoryEntry } from './player-utils.ts';
 
@@ -101,3 +103,14 @@ test('getContinueWatchingList only includes in-progress videos (3% to 95%)', () 
   assert.equal(continueList.length, 1);
   assert.equal(continueList[0].video.id, '2');
 });
+
+test('shouldApplyCssRotation returns true only when locked in portrait without native lock', () => {
+  assert.equal(shouldApplyCssRotation(true, true, false), true);
+  assert.equal(shouldApplyCssRotation(true, false, false), false);
+  assert.equal(shouldApplyCssRotation(true, true, true), false);
+  assert.equal(shouldApplyCssRotation(false, true, false), false);
+
+  assert.equal(getOrientationLockLabel(false), 'Lock screen orientation to landscape');
+  assert.equal(getOrientationLockLabel(true), 'Unlock screen orientation');
+});
+

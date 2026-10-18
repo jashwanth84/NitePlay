@@ -23,9 +23,17 @@ import {
   AlertCircle,
   Loader2,
   ChevronDown,
+  Smartphone,
+  Lock,
 } from 'lucide-react';
 import { VideoItem, VideoDetails } from '@/lib/scraper';
-import { formatDuration, parseDurationString, calculateProgress } from '@/lib/player-utils';
+import {
+  formatDuration,
+  parseDurationString,
+  calculateProgress,
+  getOrientationLockLabel,
+  shouldApplyCssRotation,
+} from '@/lib/player-utils';
 import VideoCard from './VideoCard';
 
 interface VideoPlayerModalProps {
@@ -61,6 +69,9 @@ export default function VideoPlayerModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [resumedBanner, setResumedBanner] = useState<string | null>(null);
+  const [isLandscapeLocked, setIsLandscapeLocked] = useState(false);
+  const [isForcedCssLandscape, setIsForcedCssLandscape] = useState(false);
+  const [orientationToast, setOrientationToast] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -259,6 +270,98 @@ export default function VideoPlayerModal({
     }
   };
 
+  const toggleLandscapeLock = async () => {
+    const nextLocked = !isLandscapeLocked;
+    setIsLandscapeLocked(nextLocked);
+
+    if (nextLocked) {
+      // 1. Enter fullscreen on the player container if not already active
+      if (containerRef.current && !document.fullscreenElement) {
+        try {
+          await containerRef.current.requestFullscreen();
+          setIsFullscreen(true);
+        } catch (err) {
+          console.warn('Fullscreen request failed:', err);
+        }
+      }
+
+      // 2. Attempt native Screen Orientation API lock
+      let nativeLocked = false;
+      if (typeof screen !== 'undefined' && screen.orientation && 'lock' in screen.orientation) {
+        try {
+          await (screen.orientation as any).lock('landscape');
+          nativeLocked = true;
+        } catch (err) {
+          console.warn('Native orientation lock not permitted or rejected:', err);
+        }
+      }
+
+      // 3. Fallback CSS forced rotation for portrait mobile browsers (like iOS Safari)
+      if (typeof window !== 'undefined') {
+        const isPortrait = window.innerHeight > window.innerWidth;
+        if (isPortrait && !nativeLocked) {
+          setIsForcedCssLandscape(true);
+        }
+      }
+
+      setOrientationToast('Orientation Locked: Landscape');
+      setTimeout(() => setOrientationToast(null), 3500);
+    } else {
+      // Unlock orientation
+      if (typeof screen !== 'undefined' && screen.orientation && 'unlock' in screen.orientation) {
+        try {
+          screen.orientation.unlock();
+        } catch (err) {}
+      }
+      setIsForcedCssLandscape(false);
+      setOrientationToast('Orientation Unlocked');
+      setTimeout(() => setOrientationToast(null), 3000);
+    }
+  };
+
+  // Sync orientation and clean up upon exiting fullscreen or unmounting
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+      if (!isFs && isLandscapeLocked) {
+        setIsLandscapeLocked(false);
+        setIsForcedCssLandscape(false);
+        if (typeof screen !== 'undefined' && screen.orientation && 'unlock' in screen.orientation) {
+          try {
+            screen.orientation.unlock();
+          } catch (e) {}
+        }
+      }
+    };
+
+    const handleResize = () => {
+      if (typeof window !== 'undefined' && isLandscapeLocked) {
+        const isPortrait = window.innerHeight > window.innerWidth;
+        setIsForcedCssLandscape(isPortrait);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+
+      // Always restore orientation on unmount
+      if (typeof screen !== 'undefined' && screen.orientation && 'unlock' in screen.orientation) {
+        try {
+          screen.orientation.unlock();
+        } catch (e) {}
+      }
+    };
+  }, [isLandscapeLocked]);
+
   // Keyboard accessibility shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -279,6 +382,9 @@ export default function VideoPlayerModal({
       } else if (e.key === 'f') {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.key === 'o' || e.key === 'r') {
+        e.preventDefault();
+        toggleLandscapeLock();
       } else if (e.key === 'Escape') {
         onClose();
       }
@@ -286,7 +392,7 @@ export default function VideoPlayerModal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, duration, isMuted, volume]);
+  }, [isPlaying, duration, isMuted, volume, isLandscapeLocked]);
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -342,7 +448,26 @@ export default function VideoPlayerModal({
         <div
           ref={containerRef}
           onMouseMove={handleMouseMove}
-          className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 flex items-center justify-center group select-none"
+          style={
+            isForcedCssLandscape
+              ? {
+                  position: 'fixed',
+                  top: 0,
+                  left: '100vw',
+                  width: '100vh',
+                  height: '100vw',
+                  transform: 'rotate(90deg)',
+                  transformOrigin: 'top left',
+                  zIndex: 9999,
+                  maxWidth: 'none',
+                  maxHeight: 'none',
+                  borderRadius: 0,
+                }
+              : undefined
+          }
+          className={`relative aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 flex items-center justify-center group select-none transition-all ${
+            isForcedCssLandscape ? 'fixed inset-0 z-[9999] rounded-none border-none' : ''
+          }`}
         >
           {/* HTML5 Video Element */}
           <video
@@ -370,6 +495,32 @@ export default function VideoPlayerModal({
               {resumedBanner}
             </div>
           )}
+
+          {/* Orientation Status Toast */}
+          {orientationToast && (
+            <div className="absolute top-4 left-4 z-30 px-3.5 py-1.5 rounded-lg bg-black/85 border border-[#E50914]/50 text-xs font-semibold text-white animate-fade-in flex items-center gap-2 pointer-events-none shadow-lg shadow-black/80">
+              <Smartphone className="w-3.5 h-3.5 text-[#E50914] -rotate-90" />
+              <span>{orientationToast}</span>
+            </div>
+          )}
+
+          {/* Quick Screen Orientation Lock Overlay Trigger in Top-Right */}
+          <button
+            onClick={toggleLandscapeLock}
+            className={`absolute top-4 right-4 z-20 min-h-[38px] px-3 py-1.5 rounded-xl border backdrop-blur-md flex items-center gap-1.5 text-xs font-semibold transition-all duration-300 ${
+              showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            } ${
+              isLandscapeLocked
+                ? 'bg-[#E50914] text-white border-[#E50914] shadow-lg shadow-[#E50914]/40'
+                : 'bg-black/60 hover:bg-black/80 text-white/90 border-white/20'
+            }`}
+            aria-label={getOrientationLockLabel(isLandscapeLocked)}
+            title={getOrientationLockLabel(isLandscapeLocked)}
+          >
+            <Smartphone className="w-3.5 h-3.5 -rotate-90" />
+            <span>{isLandscapeLocked ? 'Locked 90°' : 'Lock Landscape'}</span>
+            {isLandscapeLocked && <Lock className="w-3 h-3 text-white ml-0.5" />}
+          </button>
 
           {/* Playback Error Overlay */}
           {errorMsg && (
@@ -501,6 +652,28 @@ export default function VideoPlayerModal({
                     </div>
                   )}
                 </div>
+
+                {/* Screen Orientation Lock Button */}
+                <button
+                  onClick={toggleLandscapeLock}
+                  className={`min-h-[40px] px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all focus:outline-none ${
+                    isLandscapeLocked
+                      ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/40'
+                      : 'hover:bg-white/10 text-slate-200'
+                  }`}
+                  aria-label={getOrientationLockLabel(isLandscapeLocked)}
+                  title={getOrientationLockLabel(isLandscapeLocked)}
+                >
+                  <Smartphone className="w-4 h-4 -rotate-90" />
+                  {isLandscapeLocked ? (
+                    <div className="flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-white" />
+                      <span className="hidden sm:inline text-[11px]">Landscape</span>
+                    </div>
+                  ) : (
+                    <span className="hidden sm:inline text-[11px] font-semibold">Rotate</span>
+                  )}
+                </button>
 
                 {/* Fullscreen Toggle */}
                 <button

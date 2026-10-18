@@ -149,3 +149,19 @@ export function updateHistoryList(
 export function getContinueWatchingList(history: WatchHistoryEntry[]): WatchHistoryEntry[] {
   return history.filter(item => item.progressPercent >= 3 && item.progressPercent <= 95);
 }
+
+/**
+ * Determines whether forced CSS rotation is needed for orientation locking.
+ * Returns true if locked, currently in portrait, and native lock was not applied.
+ */
+export function shouldApplyCssRotation(isLocked: boolean, isPortrait: boolean, nativeLockApplied: boolean): boolean {
+  return isLocked && isPortrait && !nativeLockApplied;
+}
+
+/**
+ * Returns accessible label for screen orientation lock button.
+ */
+export function getOrientationLockLabel(isLocked: boolean): string {
+  return isLocked ? 'Unlock screen orientation' : 'Lock screen orientation to landscape';
+}
+
