@@ -151,7 +151,7 @@ export default function LibraryView({
             <Bookmark className="w-12 h-12 text-slate-600 mb-3" />
             <h3 className="text-lg font-bold text-white mb-1">Your List is Empty</h3>
             <p className="text-xs max-w-sm text-slate-400">
-              Click the heart or "+ Add to Library" icon on any video card to save your top content here.
+              Click the heart or &quot;+ Add to Library&quot; icon on any video card to save your top content here.
             </p>
           </div>
         )

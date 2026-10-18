@@ -21,7 +21,15 @@ import { SEED_VIDEOS, POPULAR_CATEGORIES } from '@/lib/scraper';
 import { Loader2, Flame, Sparkles, RefreshCw, Layers } from 'lucide-react';
 
 export default function HomePage() {
-  const [isAgeVerified, setIsAgeVerified] = useState(false);
+  const [isAgeVerified, setIsAgeVerified] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        localStorage.getItem('niteplay_age_verified') === 'true' ||
+        sessionStorage.getItem('niteplay_age_verified') === 'true'
+      );
+    }
+    return false;
+  });
   const [activeTab, setActiveTab] = useState<'home' | 'trending' | 'categories' | 'library'>('home');
 
   // Video feeds
@@ -42,39 +50,35 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Local user state (favorites & history)
-  const [favorites, setFavorites] = useState<VideoItem[]>([]);
-  const [watchHistory, setWatchHistory] = useState<WatchHistoryEntry[]>([]);
-  const [isHistoryEnabled, setIsHistoryEnabled] = useState(true);
-
-  // Check age verification & load local storage on mount
-  useEffect(() => {
-    try {
-      const verified =
-        localStorage.getItem('niteplay_age_verified') === 'true' ||
-        sessionStorage.getItem('niteplay_age_verified') === 'true';
-      setIsAgeVerified(verified);
-
-      // Load favorites
-      const savedFavs = localStorage.getItem('niteplay_favorites');
-      if (savedFavs) {
-        setFavorites(JSON.parse(savedFavs));
-      }
-
-      // Load history
-      const savedHist = localStorage.getItem('niteplay_watch_history');
-      if (savedHist) {
-        setWatchHistory(JSON.parse(savedHist));
-      }
-
-      // Load history enabled setting
-      const histSetting = localStorage.getItem('niteplay_history_enabled');
-      if (histSetting !== null) {
-        setIsHistoryEnabled(histSetting === 'true');
-      }
-    } catch (e) {
-      console.warn('LocalStorage access issue:', e);
+  const [favorites, setFavorites] = useState<VideoItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedFavs = localStorage.getItem('niteplay_favorites');
+        if (savedFavs) return JSON.parse(savedFavs);
+      } catch (e) {}
     }
-  }, []);
+    return [];
+  });
+
+  const [watchHistory, setWatchHistory] = useState<WatchHistoryEntry[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedHist = localStorage.getItem('niteplay_watch_history');
+        if (savedHist) return JSON.parse(savedHist);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [isHistoryEnabled, setIsHistoryEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const histSetting = localStorage.getItem('niteplay_history_enabled');
+        if (histSetting !== null) return histSetting === 'true';
+      } catch (e) {}
+    }
+    return true;
+  });
 
   // Fetch initial home, trending, and newest video feeds
   useEffect(() => {
@@ -125,10 +129,7 @@ export default function HomePage() {
 
   // Fetch category videos when category filter changes
   useEffect(() => {
-    if (!selectedCategory) {
-      setCategoryVideos([]);
-      return;
-    }
+    if (!selectedCategory) return;
 
     let isSubscribed = true;
     async function loadCategory() {
@@ -148,6 +149,13 @@ export default function HomePage() {
       isSubscribed = false;
     };
   }, [selectedCategory]);
+
+  const handleSelectCategory = (cat: string | null) => {
+    setSelectedCategory(cat);
+    if (!cat) {
+      setCategoryVideos([]);
+    }
+  };
 
   // Favorite toggle handler
   const handleToggleFavorite = (video: VideoItem) => {
@@ -297,7 +305,7 @@ export default function HomePage() {
 
             <CategoryPills
               selectedCategory={selectedCategory}
-              onSelectCategory={(cat) => setSelectedCategory(cat)}
+              onSelectCategory={(cat) => handleSelectCategory(cat)}
             />
 
             {selectedCategory && (
@@ -373,7 +381,7 @@ export default function HomePage() {
             <CategoryPills
               selectedCategory={selectedCategory}
               onSelectCategory={(cat) => {
-                setSelectedCategory(cat);
+                handleSelectCategory(cat);
                 if (cat) {
                   setSearchQuery(cat);
                   setIsSearchOpen(true);

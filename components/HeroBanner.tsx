@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Plus, Check, Star, Eye, Clock, Sparkles } from 'lucide-react';
-import { VideoItem, formatDuration } from '@/lib/player-utils';
+import { VideoItem, formatDuration, generateUniqueVideoPoster } from '@/lib/player-utils';
 
 interface HeroBannerProps {
   video: VideoItem;
@@ -17,14 +17,44 @@ export default function HeroBanner({
   isFavorite,
   onToggleFavorite,
 }: HeroBannerProps) {
+  const [failedThumb, setFailedThumb] = useState<string | null>(null);
+  const [triedProxy, setTriedProxy] = useState(false);
+
+  const [prevThumb, setPrevThumb] = useState(video.thumbnail);
+  if (video.thumbnail !== prevThumb) {
+    setPrevThumb(video.thumbnail);
+    setFailedThumb(null);
+    setTriedProxy(false);
+  }
+
+  let displaySrc = video.thumbnail;
+  if (failedThumb === video.thumbnail) {
+    if (triedProxy) {
+      displaySrc = generateUniqueVideoPoster(video.id, video.title);
+    } else {
+      displaySrc = `/api/proxy/image?url=${encodeURIComponent(video.thumbnail)}`;
+    }
+  }
+
+  const handleImageError = () => {
+    if (!triedProxy && video.thumbnail && video.thumbnail.startsWith('http')) {
+      setTriedProxy(true);
+      setFailedThumb(video.thumbnail);
+    } else {
+      setTriedProxy(true);
+      setFailedThumb(video.thumbnail);
+    }
+  };
+
   return (
     <div className="relative w-full h-[380px] sm:h-[460px] lg:h-[520px] rounded-2xl overflow-hidden bg-[#17171D] border border-white/10 group mb-8">
       {/* Background Media with Dark Gradient Scrims */}
       <div className="absolute inset-0">
         <img
-          src={video.thumbnail}
+          src={displaySrc}
           alt={video.title}
           referrerPolicy="no-referrer"
+          onError={handleImageError}
           className="w-full h-full object-cover object-center transform scale-105 group-hover:scale-100 transition-transform duration-700 opacity-60"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0F] via-[#0B0B0F]/60 to-transparent" />

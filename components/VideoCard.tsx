@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Play, Heart, Star, Clock, Eye } from 'lucide-react';
-import { VideoItem } from '@/lib/player-utils';
+import { VideoItem, generateUniqueVideoPoster } from '@/lib/player-utils';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -22,6 +22,36 @@ export default function VideoCard({
   const [isHovered, setIsHovered] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const [failedThumb, setFailedThumb] = useState<string | null>(null);
+  const [triedProxy, setTriedProxy] = useState(false);
+
+  // If thumbnail prop changes, adjust state during render (standard React pattern)
+  const [prevThumb, setPrevThumb] = useState(video.thumbnail);
+  if (video.thumbnail !== prevThumb) {
+    setPrevThumb(video.thumbnail);
+    setFailedThumb(null);
+    setTriedProxy(false);
+  }
+
+  let displaySrc = video.thumbnail;
+  if (failedThumb === video.thumbnail) {
+    if (triedProxy) {
+      displaySrc = generateUniqueVideoPoster(video.id, video.title);
+    } else {
+      displaySrc = `/api/proxy/image?url=${encodeURIComponent(video.thumbnail)}`;
+    }
+  }
+
+  const handleImageError = () => {
+    if (!triedProxy && video.thumbnail && video.thumbnail.startsWith('http')) {
+      setTriedProxy(true);
+      setFailedThumb(video.thumbnail);
+    } else {
+      setTriedProxy(true);
+      setFailedThumb(video.thumbnail);
+    }
+  };
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -53,18 +83,14 @@ export default function VideoCard({
       >
         {/* Poster Image */}
         <img
-          src={video.thumbnail}
+          src={displaySrc}
           alt={video.title}
           referrerPolicy="no-referrer"
           loading="lazy"
           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
             isHovered && video.previewVideo && videoLoaded ? 'opacity-0' : 'opacity-100'
           }`}
-          onError={(e) => {
-            // fallback placeholder if remote cdn issues
-            (e.target as HTMLImageElement).src =
-              'https://ic-vt-nss.xhcdn.com/a/MTdjNzZkMWJmNTI0MWU5NDNiMmY1NWM4M2E3YTNiOGM/s(w:1280,h:720),webp/031/203/210/v2/2560x1440.225.webp';
-          }}
+          onError={handleImageError}
         />
 
         {/* Dynamic Video Preview on Hover */}

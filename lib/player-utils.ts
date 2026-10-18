@@ -165,3 +165,54 @@ export function getOrientationLockLabel(isLocked: boolean): string {
   return isLocked ? 'Unlock screen orientation' : 'Lock screen orientation to landscape';
 }
 
+/**
+ * Generates an SVG Data URI poster uniquely derived from the video ID and title.
+ * Used as a deterministic zero-duplicate fallback if external CDN images fail or get blocked.
+ */
+export function generateUniqueVideoPoster(id: string, title: string): string {
+  let hash = 0;
+  const str = id || title || 'niteplay';
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const palettes = [
+    { from: '#1a0826', to: '#4a154b', accent: '#E50914' },
+    { from: '#0f172a', to: '#1e3a8a', accent: '#38bdf8' },
+    { from: '#1c1917', to: '#44403c', accent: '#f59e0b' },
+    { from: '#14141f', to: '#2b1055', accent: '#ec4899' },
+    { from: '#062820', to: '#0f4c3a', accent: '#10b981' },
+    { from: '#2e0814', to: '#581024', accent: '#ff4d6d' },
+    { from: '#18181b', to: '#27272a', accent: '#a855f7' },
+    { from: '#111827', to: '#1f2937', accent: '#E50914' },
+  ];
+  const choice = palettes[Math.abs(hash) % palettes.length];
+  const safeTitle = (title || 'Video')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .slice(0, 48);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="100%" height="100%">
+    <defs>
+      <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${choice.from}" />
+        <stop offset="100%" stop-color="${choice.to}" />
+      </linearGradient>
+      <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${choice.accent}" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="${choice.accent}" stop-opacity="0" />
+      </radialGradient>
+    </defs>
+    <rect width="640" height="360" fill="url(#grad)" />
+    <circle cx="320" cy="165" r="130" fill="url(#glow)" />
+    <circle cx="320" cy="150" r="32" fill="#E50914" opacity="0.9" />
+    <polygon points="314,138 332,150 314,162" fill="#ffffff" />
+    <text x="320" y="235" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="middle">${safeTitle}</text>
+    <text x="320" y="260" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">NitePlay Premium</text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+

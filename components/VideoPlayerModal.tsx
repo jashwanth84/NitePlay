@@ -81,10 +81,10 @@ export default function VideoPlayerModal({
   // 1. Fetch detailed metadata and authorized streaming URLs
   useEffect(() => {
     let isMounted = true;
-    setLoadingDetails(true);
-    setErrorMsg(null);
 
     async function loadData() {
+      setLoadingDetails(true);
+      setErrorMsg(null);
       try {
         const res = await fetch(`/api/videos/${video.id}?url=${encodeURIComponent(video.url)}`);
         const json = await res.json();

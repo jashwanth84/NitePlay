@@ -8,17 +8,15 @@ interface AgeVerificationModalProps {
 }
 
 export default function AgeVerificationModal({ onVerified }: AgeVerificationModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-
-  useEffect(() => {
-    // Check if user has previously confirmed age in LocalStorage or sessionStorage
-    const stored = localStorage.getItem('niteplay_age_verified');
-    const session = sessionStorage.getItem('niteplay_age_verified');
-    if (!stored && !session) {
-      setIsOpen(true);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('niteplay_age_verified');
+      const session = sessionStorage.getItem('niteplay_age_verified');
+      return !stored && !session;
     }
-  }, []);
+    return false;
+  });
+  const [rememberMe, setRememberMe] = useState(true);
 
   const handleConfirm = () => {
     if (rememberMe) {

@@ -10,6 +10,7 @@ import {
   getContinueWatchingList,
   shouldApplyCssRotation,
   getOrientationLockLabel,
+  generateUniqueVideoPoster,
 } from './player-utils.ts';
 import type { VideoItem, WatchHistoryEntry } from './player-utils.ts';
 
@@ -112,5 +113,13 @@ test('shouldApplyCssRotation returns true only when locked in portrait without n
 
   assert.equal(getOrientationLockLabel(false), 'Lock screen orientation to landscape');
   assert.equal(getOrientationLockLabel(true), 'Unlock screen orientation');
+});
+
+test('generateUniqueVideoPoster generates unique non-empty SVG data URIs for different IDs', () => {
+  const p1 = generateUniqueVideoPoster('101', 'First Video');
+  const p2 = generateUniqueVideoPoster('202', 'Second Video');
+  assert.ok(p1.startsWith('data:image/svg+xml'));
+  assert.ok(p2.startsWith('data:image/svg+xml'));
+  assert.notEqual(p1, p2, 'Different video IDs must generate distinct posters');
 });
 

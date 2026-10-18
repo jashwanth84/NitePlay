@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, X, SlidersHorizontal, Loader2, AlertCircle } from 'lucide-react';
 import { VideoItem } from '@/lib/player-utils';
 import { POPULAR_CATEGORIES } from '@/lib/scraper';
@@ -34,48 +34,50 @@ export default function SearchFilterDrawer({
   const [showFilters, setShowFilters] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const executeSearch = useCallback(
+    async (
+      q: string,
+      p: number,
+      cat: string,
+      sort: string,
+      qual: string,
+      dur: string,
+      append = false
+    ) => {
+      setLoading(true);
+      setHasSearched(true);
+      try {
+        const params = new URLSearchParams();
+        if (q.trim()) params.set('q', q.trim());
+        if (cat) params.set('category', cat);
+        if (sort) params.set('sort', sort);
+        if (qual) params.set('quality', qual);
+        if (dur) params.set('minDuration', dur);
+        params.set('page', p.toString());
+
+        const res = await fetch(`/api/search?${params.toString()}`);
+        const data = await res.json();
+        if (data.success && data.videos) {
+          if (append) {
+            setVideos((prev) => [...prev, ...data.videos]);
+          } else {
+            setVideos(data.videos);
+          }
+        }
+      } catch (err) {
+        console.error('Search failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     if (initialQuery) {
-      setQuery(initialQuery);
       executeSearch(initialQuery, 1, category, sortBy, quality, minDuration);
     }
-  }, [initialQuery]);
-
-  const executeSearch = async (
-    q: string,
-    p: number,
-    cat: string,
-    sort: string,
-    qual: string,
-    dur: string,
-    append = false
-  ) => {
-    setLoading(true);
-    setHasSearched(true);
-    try {
-      const params = new URLSearchParams();
-      if (q.trim()) params.set('q', q.trim());
-      if (cat) params.set('category', cat);
-      if (sort) params.set('sort', sort);
-      if (qual) params.set('quality', qual);
-      if (dur) params.set('minDuration', dur);
-      params.set('page', p.toString());
-
-      const res = await fetch(`/api/search?${params.toString()}`);
-      const data = await res.json();
-      if (data.success && data.videos) {
-        if (append) {
-          setVideos((prev) => [...prev, ...data.videos]);
-        } else {
-          setVideos(data.videos);
-        }
-      }
-    } catch (err) {
-      console.error('Search failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [initialQuery, executeSearch, category, sortBy, quality, minDuration]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
